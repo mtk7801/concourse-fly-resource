@@ -1,2 +1,78 @@
-#!/bin/sh
-echo '{"version":{}}'
+#!/bin/bash
+
+set -e
+
+exec 3>&1 # make stdout available as fd 3 for the result
+exec 1>&2 # redirect all output to stderr for logging
+
+. $(dirname $0)/common.sh
+cd "$1"
+
+payload=$(mktemp /tmp/fly-resource-request.XXXXXX)
+cat > "$payload" <&0
+
+url=$(jq -r ".source.url // \"$ATC_EXTERNAL_URL\"" < $payload)
+
+username=$(jq -r '.source.username // ""' < $payload)
+test -z "$username" && { echo "Must supply 'username' source attribute" >&2; exit 1; }
+
+password=$(jq -r '.source.password // ""' < $payload)
+test -z "$password" && { echo "Must supply 'password' source attribute" >&2; exit 1; }
+
+team=$(jq -r ".source.team // \"$BUILD_TEAM_NAME\"" < $payload)
+target=$(jq -r '.source.target // "main"' < $payload)
+insecure=$(jq -r '.source.insecure // "false"' < $payload)
+debug=$(jq -r '.source.debug // "false"' < $payload)
+multiline_lines=$(jq -r '.source.multiline_lines // "false"' < $payload)
+secure_output=$(jq -r '.source.secure_output // "true"' < $payload)
+
+options=$(jq -r '.params.options // ""' < $payload)
+options_file=$(jq -r '.params.options_file // ""' < $payload)
+
+if [ -z "$options" ] && [ -z "$options_file" ]; then
+  echo "Must supply exactly one of 'options' and 'options_file'" >&2
+  exit 1
+fi
+if [ -n "$options_file" ]; then
+  options=$(cat "$options_file")
+fi
+if [ -z "$options" ]; then
+  echo "Must supply some options to fly" >&2
+  exit 1
+fi
+
+expanded_options=$(sed "s/\$BUILD_ID/$BUILD_ID/g" <<<$options)
+expanded_options=$(sed "s/\$BUILD_TEAM_NAME/$BUILD_TEAM_NAME/g" <<<$expanded_options)
+expanded_options=$(sed "s/\$BUILD_JOB_NAME/$BUILD_JOB_NAME/g" <<<$expanded_options)
+expanded_options=$(sed "s/\$BUILD_PIPELINE_NAME/$BUILD_PIPELINE_NAME/g" <<<$expanded_options)
+expanded_options=$(sed "s/\$BUILD_NAME/$BUILD_NAME/g" <<<$expanded_options)
+expanded_options=$(sed "s@\$ATC_EXTERNAL_URL@$ATC_EXTERNAL_URL@g" <<<$expanded_options) # use another separator to avoid conflit with replaced url
+
+if [ "$secure_output" = false ]; then
+  echo "Options: $expanded_options"
+else
+  echo "Options: ##SUPRESSED##"
+fi
+
+test "$debug" = "true" && set -x
+
+init_fly "$url" "$username" "$password" "$team" "$insecure" "$target"
+
+READSWITCH="-r"
+
+if [ "$multiline_lines" = true ]; then
+  READSWITCH=""
+fi
+
+while read $READSWITCH line; do
+  (
+    if [ "$secure_output" = false ]; then
+      set -x
+    fi
+    fly -t "$target" $line | tee fly_output.txt
+  )
+done <<< "$expanded_options"
+
+jq -n "{
+  version: {}
+}" >&3
