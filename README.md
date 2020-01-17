@@ -1,7 +1,7 @@
 Concourse Fly Resource
 ======================
 
-A [Concourse](https://concourse-ci.org/) resource for executing `fly` and fetching its output. Based on https://hub.docker.com/r/troykinsella/concourse-fly-resource.
+A [Concourse](https://concourse-ci.org/) resource for executing `fly` and fetching its output. Based on https://github.com/troykinsella/concourse-fly-resource.
 
 ## Resource Type Configuration
 
