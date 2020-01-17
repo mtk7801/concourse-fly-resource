@@ -1,5 +1,4 @@
 FROM alpine:edge
-LABEL MAINTAINER="Troy Kinsella <troy.kinsella@gmail.com>"
 
 COPY assets/* /opt/resource/
 

@@ -64,12 +64,13 @@ if [ "$multiline_lines" = true ]; then
   READSWITCH=""
 fi
 
+rm -f fly_output.txt
 while read $READSWITCH line; do
   (
     if [ "$secure_output" = false ]; then
       set -x
     fi
-    fly -t "$target" $line | tee fly_output.txt
+    fly -t "$target" $line | tee -a fly_output.txt
   )
 done <<< "$expanded_options"
 
