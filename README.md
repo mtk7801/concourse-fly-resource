@@ -47,7 +47,7 @@ resources:
 
 ### `check`: No-Op
 
-### `in`: Execute `fly` command
+### `in`: Execute `fly` command.
 
 Execute the given `fly` command along with given options. The `fly` client is downloaded from the target 
 Concourse instance if not already present. If there is a version mismatch between `fly` and Concourse,
